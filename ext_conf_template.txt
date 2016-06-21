@@ -1,2 +1,4 @@
 # cat=plugin.tx_minifier; type=boolean; label=Disable minifier
 disableMinifier = 0
+# cat=plugin.tx_minifier; type=boolean; label=Disable minification of CDN
+dontMinifyCDN = 0

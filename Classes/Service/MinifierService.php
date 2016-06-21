@@ -40,6 +40,23 @@ class MinifierService implements SingletonInterface
     const ASSET_PREFIX = 'minifier-';
 
     /**
+     * @var array
+     */
+    protected $extConf = array();
+
+    /**
+     * @return MinifierService
+     */
+    public function __construct()
+    {
+        $extConf = unserialize($GLOBALS['TYPO3_CONF_VARS']['EXT']['extConf']['minifier']);
+
+        if (is_array($extConf)) {
+            $this->extConf = $extConf;
+        }
+    }
+
+    /**
      * @param string $html
      */
     public function compressPage(&$html)
@@ -82,9 +99,31 @@ class MinifierService implements SingletonInterface
                 $minifiedFilePath = '/typo3temp/' . self::ASSET_PREFIX . md5($filePath) . '.' . $fileExtension;
 
                 if (false === file_exists($documentRoot . $minifiedFilePath)) {
+                    $urlSchema = parse_url($filePath, PHP_URL_SCHEME);
+
+                    if (
+                        true === (boolean) $this->extConf['dontMinifyCDN'] &&
+                        (
+                            null !== $urlSchema ||
+                            '//' === substr($filePath, 0, 2)
+                        )
+                    ) {
+                        return $filePath;
+                    }
+
+                    if (null !== $urlSchema) {
+                        $fullFilePath = $filePath;
+                    } elseif ('//' === substr($filePath, 0, 2)) {
+                        $fullFilePath = 'https:' . $filePath;
+                    } else {
+                        $fullFilePath = $documentRoot . $filePath;
+                    }
+
                     $minifier = 'css' === $fileExtension ?
-                        new Minify\CSS($documentRoot . $filePath) :
-                        new Minify\JS($documentRoot . $filePath);
+                        new Minify\CSS() :
+                        new Minify\JS();
+
+                    $minifier->add(file_get_contents($fullFilePath));
                     $minifier->minify($documentRoot . $minifiedFilePath);
                 }
 

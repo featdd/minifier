@@ -1,0 +1,2 @@
+# cat=plugin.tx_minifier; type=boolean; label=Disable minifier
+disableMinifier = 0

@@ -102,7 +102,7 @@ class MinifierService implements SingletonInterface
                     $urlSchema = parse_url($filePath, PHP_URL_SCHEME);
 
                     if (
-                        true === (boolean) $this->extConf['dontMinifyCDN'] &&
+                        false === (boolean) $this->extConf['minifyCDN'] &&
                         (
                             null !== $urlSchema ||
                             '//' === substr($filePath, 0, 2)

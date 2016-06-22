@@ -39,11 +39,7 @@ class RenderPreProcessHook
 {
     const KEY_ORIGINAL = 'original';
     const KEY_PATH = 'path';
-
-    /**
-     * @var \Featdd\Minifier\Service\MinifierService
-     */
-    protected $minifierService;
+    const ASSET_PREFIX = 'minifier-';
 
     /**
      * @var array
@@ -55,9 +51,6 @@ class RenderPreProcessHook
      */
     public function __construct()
     {
-        /** @var ObjectManager $objectManager */
-        $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
-        $this->minifierService = $objectManager->get(MinifierService::class);
         $extConf = unserialize($GLOBALS['TYPO3_CONF_VARS']['EXT']['extConf']['minifier']);
 
         if (is_array($extConf)) {
@@ -85,21 +78,36 @@ class RenderPreProcessHook
     /**
      * @param array   $files
      * @param string  $keyToUse
+     * @param boolean $concatinate
      */
-    protected function replaceAssets(array &$files, $keyToUse = self::KEY_ORIGINAL)
+    protected function replaceAssets(array &$files, $keyToUse = self::KEY_ORIGINAL, $concatinate = false)
     {
-        $newFiles = array();
-
         foreach ($files as $key => $file) {
-            $file['file'] = $this->minifierService->minifyFile($file['file']);
+            if (
+                false === (boolean) $this->extConf['minifyCDN'] &&
+                (
+                    null !== parse_url($file['file'], PHP_URL_SCHEME) ||
+                    '//' === substr($file['file'], 0, 2)
+                )
+            ) {
+                continue;
+            }
+
+            $fileExtension = pathinfo($file['file'], PATHINFO_EXTENSION);
+            $fileExtension = 'scss' === $fileExtension ? 'css' : $fileExtension;
+            $minifiedFilePath = 'typo3temp/' . self::ASSET_PREFIX . md5($file['file']) . '.' . $fileExtension;
+
+            file_put_contents(PATH_site . $minifiedFilePath, MinifierService::minifyFile($file['file']));
 
             if ($keyToUse === self::KEY_ORIGINAL) {
-                $newFiles[$key] = $file;
+                $file['file'] = $minifiedFilePath;
+                $files[$key] = $file;
             } else {
-                $newFiles[$file['file']] = $file;
+                $newFile = $file;
+                $newFile['file'] = $minifiedFilePath;
+                $files[$minifiedFilePath] = $file;
+                unset($files[$file['file']]);
             }
         }
-
-        $files = $newFiles;
     }
 }

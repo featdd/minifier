@@ -57,48 +57,24 @@ class MinifierService implements SingletonInterface
     }
 
     /**
-     * @param string $html
-     */
-    public function compressPage(&$html)
-    {
-        $callback = function ($match) {
-            $filePath = $match[2];
-            $cleanFilePath = preg_replace('#\?.*#i', '', $filePath);
-            $filePath = $this->minificator($cleanFilePath);
-
-            return $match[1] . $filePath . $match[3];
-        };
-
-        $html = preg_replace_callback(
-            '#(<link\s+(?:[^>]*?\s+)?href=")([^"]*)(")#i',
-            $callback,
-            $html
-        );
-
-        $html = preg_replace_callback(
-            '#(<script\s+(?:[^>]*?\s+)?src=")([^"]*)(")#i',
-            $callback,
-            $html
-        );
-
-        $this->minifyHTML($html);
-    }
-
-    /**
      * @param string $filePath
      * @return string
      */
-    protected function minificator($filePath)
+    public function minifyFile($filePath)
     {
-        $documentRoot = substr(PATH_site, 0, strlen(PATH_site) - 1);
         $fileExtension = pathinfo($filePath, PATHINFO_EXTENSION);
+
+        // remove slash on path beginning
+        if ('//' !== substr($filePath, 0, 2) && '/' === substr($filePath, 0, 1)) {
+            $filePath = substr($filePath, 1);
+        }
 
         switch ($fileExtension) {
             case 'js':
             case 'css':
-                $minifiedFilePath = '/typo3temp/' . self::ASSET_PREFIX . md5($filePath) . '.' . $fileExtension;
+                $minifiedFilePath = 'typo3temp/' . self::ASSET_PREFIX . md5($filePath) . '.' . $fileExtension;
 
-                if (false === file_exists($documentRoot . $minifiedFilePath)) {
+                if (false === file_exists(PATH_site . $minifiedFilePath)) {
                     $urlSchema = parse_url($filePath, PHP_URL_SCHEME);
 
                     if (
@@ -116,29 +92,34 @@ class MinifierService implements SingletonInterface
                     } elseif ('//' === substr($filePath, 0, 2)) {
                         $fullFilePath = 'https:' . $filePath;
                     } else {
-                        $fullFilePath = $documentRoot . $filePath;
+                        $fullFilePath = PATH_site . $filePath;
                     }
 
-                    $minifier = 'css' === $fileExtension ?
-                        new Minify\CSS() :
-                        new Minify\JS();
-
-                    $minifier->add(file_get_contents($fullFilePath));
-                    $minifier->minify($documentRoot . $minifiedFilePath);
+                    if ('css' === $fileExtension) {
+                        file_put_contents(
+                            $minifiedFilePath,
+                            $this->minifyCSS(file_get_contents($fullFilePath))
+                        );
+                    } else {
+                        file_put_contents(
+                            $minifiedFilePath,
+                            $this->minifyJS(file_get_contents($fullFilePath))
+                        );
+                    }
                 }
 
                 break;
             case 'scss':
-                $minifiedFilePath = '/typo3temp/' . self::ASSET_PREFIX . md5($filePath) . '.css';
+                $minifiedFilePath = 'typo3temp/' . self::ASSET_PREFIX . md5($filePath) . '.css';
 
-                if (false === file_exists($documentRoot . $minifiedFilePath)) {
+                if (false === file_exists($minifiedFilePath)) {
                     $compiler = new Compiler();
                     $compiler->setFormatter(Compressed::class);
-                    $compiler->addImportPath(pathinfo($documentRoot . $filePath, PATHINFO_DIRNAME));
+                    $compiler->addImportPath(pathinfo(PATH_site . $filePath, PATHINFO_DIRNAME));
 
                     file_put_contents(
-                        $documentRoot . $minifiedFilePath,
-                        $compiler->compile(file_get_contents($documentRoot . $filePath))
+                        PATH_site . $minifiedFilePath,
+                        $compiler->compile(file_get_contents(PATH_site . $filePath))
                     );
                 }
 
@@ -151,9 +132,33 @@ class MinifierService implements SingletonInterface
     }
 
     /**
+     * @param string $data
+     * @return string
+     */
+    public function minifyJS($data)
+    {
+        $minifier = new Minify\JS();
+        $minifier->add($data);
+
+        return $minifier->minify();
+    }
+
+    /**
+     * @param string $data
+     * @return string
+     */
+    public function minifyCSS($data)
+    {
+        $minifier = new Minify\CSS();
+        $minifier->add($data);
+
+        return $minifier->minify();
+    }
+
+    /**
      * @param string $html
      */
-    protected function minifyHTML(&$html)
+    public static function minifyHTML(&$html)
     {
         // Remove extra white-space(s) between HTML attribute(s)
         $html = preg_replace_callback(

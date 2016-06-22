@@ -26,27 +26,38 @@ namespace Featdd\Minifier\Hook;
  ***************************************************************/
 
 use Featdd\Minifier\Service\MinifierService;
+use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Object\ObjectManager;
-use TYPO3\CMS\Frontend\Controller\TypoScriptFrontendController;
 
 /**
  *
  * @package minifier
  * @license http://www.gnu.org/licenses/gpl.html GNU General Public License, version 3 or later
  */
-class ContentPostProcAllHook
+class RenderPreProcessHook
 {
+    const KEY_ORIGINAL = 'original';
+    const KEY_PATH = 'path';
+
+    /**
+     * @var \Featdd\Minifier\Service\MinifierService
+     */
+    protected $minifierService;
+
     /**
      * @var array
      */
     protected $extConf = array();
 
     /**
-     * @return ContentPostProcAllHook
+     * @return RenderPreProcessHook
      */
     public function __construct()
     {
+        /** @var ObjectManager $objectManager */
+        $objectManager = GeneralUtility::makeInstance(ObjectManager::class);
+        $this->minifierService = $objectManager->get(MinifierService::class);
         $extConf = unserialize($GLOBALS['TYPO3_CONF_VARS']['EXT']['extConf']['minifier']);
 
         if (is_array($extConf)) {
@@ -55,13 +66,40 @@ class ContentPostProcAllHook
     }
 
     /**
-     * @param array                        $params
-     * @param TypoScriptFrontendController $typoScriptFrontendController
+     * @param array        $params
+     * @param PageRenderer $pageRenderer
      */
-    public function main(array &$params, TypoScriptFrontendController $typoScriptFrontendController)
+    public function main(array &$params, PageRenderer $pageRenderer)
     {
-        if (false === (boolean) $this->extConf['disableMinifier']) {
-            MinifierService::minifyHTML($typoScriptFrontendController->content);
+        if ('FE' === TYPO3_MODE) {
+            $this->replaceAssets($params['cssFiles'], self::KEY_PATH);
+            $this->replaceAssets($params['jsFiles'], self::KEY_PATH);
+            $this->replaceAssets($params['jsLibs'], self::KEY_ORIGINAL);
+
+            if (true === is_array($params['cssLibs'])) {
+                $this->replaceAssets($params['cssLibs'], self::KEY_ORIGINAL);
+            }
         }
+    }
+
+    /**
+     * @param array   $files
+     * @param string  $keyToUse
+     */
+    protected function replaceAssets(array &$files, $keyToUse = self::KEY_ORIGINAL)
+    {
+        $newFiles = array();
+
+        foreach ($files as $key => $file) {
+            $file['file'] = $this->minifierService->minifyFile($file['file']);
+
+            if ($keyToUse === self::KEY_ORIGINAL) {
+                $newFiles[$key] = $file;
+            } else {
+                $newFiles[$file['file']] = $file;
+            }
+        }
+
+        $files = $newFiles;
     }
 }

@@ -2,3 +2,5 @@
 disableMinifier = 0
 # cat=plugin.tx_minifier; type=boolean; label=Minification of CDN's
 minifyCDN = 0
+# cat=plugin.tx_minifier; type=boolean; label=Concatenate minfied assets
+concatenate = 0

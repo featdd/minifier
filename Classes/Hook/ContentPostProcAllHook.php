@@ -26,8 +26,6 @@ namespace Featdd\Minifier\Hook;
  ***************************************************************/
 
 use Featdd\Minifier\Service\MinifierService;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Extbase\Object\ObjectManager;
 use TYPO3\CMS\Frontend\Controller\TypoScriptFrontendController;
 
 /**

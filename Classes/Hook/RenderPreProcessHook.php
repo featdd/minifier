@@ -65,9 +65,8 @@ class RenderPreProcessHook
         if ('FE' === TYPO3_MODE) {
             if (true === (boolean) $this->extConf['concatenate']) {
                 $this->replaceAssetsConcatinated($params['cssFiles'], 'css', self::KEY_PATH);
-                $this->replaceAssetsConcatinated($params['jsFiles'], 'js', PageRenderer::PART_FOOTER, self::KEY_PATH);
-                $this->replaceAssetsConcatinated($params['jsLibs'], 'js', PageRenderer::PART_HEADER,
-                    self::KEY_ORIGINAL);
+                $this->replaceAssetsConcatinated($params['jsFiles'], 'js', self::KEY_PATH, PageRenderer::PART_FOOTER);
+                $this->replaceAssetsConcatinated($params['jsLibs'], 'js', self::KEY_ORIGINAL, PageRenderer::PART_HEADER);
 
                 if (true === is_array($params['cssLibs'])) {
                     $this->replaceAssetsConcatinated($params['cssLibs'], 'css', self::KEY_ORIGINAL);
@@ -122,10 +121,10 @@ class RenderPreProcessHook
     /**
      * @param array   $files
      * @param string  $fileExtension
-     * @param integer $section
      * @param string  $keyToUse
+     * @param integer $section
      */
-    protected function replaceAssetsConcatinated(array &$files, $fileExtension, $section = PageRenderer::PART_HEADER, $keyToUse = self::KEY_ORIGINAL)
+    protected function replaceAssetsConcatinated(array &$files, $fileExtension, $keyToUse = self::KEY_ORIGINAL, $section = PageRenderer::PART_HEADER)
     {
         $concatinations = array();
 

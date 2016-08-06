@@ -25,7 +25,6 @@ namespace Featdd\Minifier\Hook;
  *  This copyright notice MUST APPEAR in all copies of the script!
  ***************************************************************/
 
-use Featdd\Minifier\Service\MinifierService;
 use TYPO3\CMS\Core\DataHandling\DataHandler;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -43,7 +42,7 @@ class ClearCachePostProcHook
     public function main(array &$params, DataHandler $dataHandler)
     {
         if ('pages' === $params['cacheCmd'] || 'all' === $params['cacheCmd']) {
-            $cacheFiles = glob(GeneralUtility::getFileAbsFileName('typo3temp/' . MinifierService::ASSET_PREFIX . '*'));
+            $cacheFiles = glob(GeneralUtility::getFileAbsFileName('typo3temp/' . RenderPreProcessHook::ASSET_PREFIX . '*'));
 
             if (false !== $cacheFiles) {
                 foreach ($cacheFiles as $cacheFile) {

@@ -105,8 +105,9 @@ class MinifierService implements SingletonInterface
 
     /**
      * @param string $html
+     * @return string
      */
-    public static function minifyHTML(&$html)
+    public static function minifyHTML($html)
     {
         // Remove extra white-space(s) between HTML attribute(s)
         $html = preg_replace_callback(
@@ -134,48 +135,8 @@ class MinifierService implements SingletonInterface
             );
         }
 
-        $html = preg_replace(
-            array(
-                // t = text
-                // o = tag open
-                // c = tag close
-                // Keep important white-space(s) after self-closing HTML tag(s)
-                '#<(img|input)(>| .*?>)#s',
-                // Remove a line break and two or more white-space(s) between tag(s)
-                '#(<!--.*?-->)|(>)(?:\n*|\s{2,})(<)|^\s*|\s*$#s',
-                // t+c || o+t
-                '#(<!--.*?-->)|(?<!\>)\s+(<\/.*?>)|(<[^\/]*?>)\s+(?!\<)#s',
-                // o+o || c+c
-                '#(<!--.*?-->)|(<[^\/]*?>)\s+(<[^\/]*?>)|(<\/.*?>)\s+(<\/.*?>)#s',
-                // c+t || t+o || o+t -- separated by long white-space(s)
-                '#(<!--.*?-->)|(<\/.*?>)\s+(\s)(?!\<)|(?<!\>)\s+(\s)(<[^\/]*?\/?>)|(<[^\/]*?\/?>)\s+(\s)(?!\<)#s',
-                // empty tag
-                '#(<!--.*?-->)|(<[^\/]*?>)\s+(<\/.*?>)#s',
-                // reset previous fix
-                '#<(img|input)(>| .*?>)<\/\1\x1A>#s',
-                // clean up ...
-                '#(&nbsp;)&nbsp;(?![<\s])#',
-                // Force line-break with `&#10;` or `&#xa;`
-                '#&\#(?:10|xa);#',
-                // Force white-space with `&#32;` or `&#x20;`
-                '#&\#(?:32|x20);#',
-                // Remove HTML comment(s) except IE comment(s)
-                '#\s*<!--(?!\[if\s).*?-->\s*|(?<!\>)\n+(?=\<[^!])#s',
-            ),
-            array(
-                "<$1$2</$1\x1A>",
-                '$1$2$3',
-                '$1$2$3',
-                '$1$2$3$4$5',
-                '$1$2$3$4$5$6$7',
-                '$1$2$3',
-                '<$1$2',
-                '$1 ',
-                "\n",
-                ' ',
-                "",
-            ),
-            $html
-        );
+        $html = str_replace(array("\n", "\r", "\t"), '', $html);
+
+        return $html;
     }
 }

@@ -45,7 +45,7 @@ class RenderPreProcessHook
     protected $extConf = array();
 
     /**
-     * @return RenderPreProcessHook
+     * @return \Featdd\Minifier\Hook\RenderPreProcessHook
      */
     public function __construct()
     {

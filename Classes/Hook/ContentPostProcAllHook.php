@@ -41,7 +41,7 @@ class ContentPostProcAllHook
     protected $extConf = array();
 
     /**
-     * @return ContentPostProcAllHook
+     * @return \Featdd\Minifier\Hook\ContentPostProcAllHook
      */
     public function __construct()
     {
@@ -59,7 +59,7 @@ class ContentPostProcAllHook
     public function main(array &$params, TypoScriptFrontendController $typoScriptFrontendController)
     {
         if (false === (boolean) $this->extConf['disableMinifier']) {
-            MinifierService::minifyHTML($typoScriptFrontendController->content);
+            $typoScriptFrontendController->content = MinifierService::minifyHTML($typoScriptFrontendController->content);
         }
     }
 }

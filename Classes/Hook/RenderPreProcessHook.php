@@ -35,8 +35,6 @@ use TYPO3\CMS\Core\Page\PageRenderer;
  */
 class RenderPreProcessHook
 {
-    const KEY_ORIGINAL = 'original';
-    const KEY_PATH = 'path';
     const ASSET_PREFIX = 'minifier-';
 
     /**
@@ -146,7 +144,7 @@ class RenderPreProcessHook
                 $fileExtension = pathinfo($file['file'], PATHINFO_EXTENSION);
 
                 if (
-                    false === in_array($fileExtension, array('js', 'css', 'scss', 'sass')) ||
+                    false === in_array($fileExtension, array('js', 'css', 'scss')) ||
                     false === (boolean) $this->extConf['minifyCDN'] &&
                     (
                         null !== parse_url($file['file'], PHP_URL_SCHEME) ||
@@ -156,7 +154,7 @@ class RenderPreProcessHook
                     continue;
                 }
 
-                if ('scss' === $fileExtension || 'sass' === $fileExtension) {
+                if ('scss' === $fileExtension) {
                     $fileExtension = 'css';
                 }
 

@@ -26,6 +26,8 @@
     "minifier": "*"
   },
   "scripts": {
-    "post-install-cmd": [ "cp Classes/.htaccess vendor/.htaccess" ]
+    "post-install-cmd": [
+      "cp Classes/.htaccess vendor/.htaccess"
+    ]
   }
 }

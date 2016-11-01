@@ -2,11 +2,11 @@
   "name": "Featdd/minifier",
   "type": "typo3-cms-extension",
   "description": "Automatic HTML,CSS & JS minifier",
-  "homepage": "http://featdd.de",
+  "homepage": "https://featdd.de",
   "license": [
     "GPL-2.0+"
   ],
-  "version": "0.9.4",
+  "version": "0.9.5",
   "authors": [
     {
       "name": "Daniel Dorndorf",

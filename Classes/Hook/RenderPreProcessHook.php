@@ -40,6 +40,11 @@ class RenderPreProcessHook
     const ASSET_PREFIX = 'minifier-';
 
     /**
+     * @var \TYPO3\CMS\Core\Page\PageRenderer
+     */
+    protected $pageRenderer;
+
+    /**
      * @var array
      */
     protected $extConf = array();
@@ -59,134 +64,149 @@ class RenderPreProcessHook
     /**
      * @param array        $params
      * @param PageRenderer $pageRenderer
+     * @return void
      */
     public function main(array &$params, PageRenderer $pageRenderer)
     {
+        $this->pageRenderer = $pageRenderer;
+
         if ('FE' === TYPO3_MODE) {
+            $paramFiles = array(
+                &$params['cssFiles'],
+                &$params['jsFiles'],
+                &$params['jsLibs'],
+            );
+
+            if (true === is_array($params['cssLibs'])) {
+                $paramFiles[] = &$params['cssLibs'];
+            }
+
             if (true === (boolean) $this->extConf['concatenate']) {
-                $this->replaceAssetsConcatinated($params['cssFiles'], 'css', self::KEY_PATH);
-                $this->replaceAssetsConcatinated($params['jsFiles'], 'js', self::KEY_PATH, PageRenderer::PART_FOOTER);
-                $this->replaceAssetsConcatinated($params['jsLibs'], 'js', self::KEY_ORIGINAL, PageRenderer::PART_HEADER);
-
-                if (true === is_array($params['cssLibs'])) {
-                    $this->replaceAssetsConcatinated($params['cssLibs'], 'css', self::KEY_ORIGINAL);
-                }
+                $this->replaceAssetsConcatinated($paramFiles);
             } else {
-                $this->replaceAssets($params['cssFiles'], self::KEY_PATH);
-                $this->replaceAssets($params['jsFiles'], self::KEY_PATH);
-                $this->replaceAssets($params['jsLibs'], self::KEY_ORIGINAL);
+                $this->replaceAssets($paramFiles);
+            }
+        }
+    }
 
-                if (true === is_array($params['cssLibs'])) {
-                    $this->replaceAssets($params['cssLibs'], self::KEY_ORIGINAL);
+    /**
+     * @param array $fileArrays
+     * @return void
+     */
+    protected function replaceAssets(array &$fileArrays)
+    {
+        foreach ($fileArrays as &$files) {
+            foreach ($files as $key => $file) {
+                if (
+                    false === (boolean) $this->extConf['minifyCDN'] &&
+                    (
+                        null !== parse_url($file['file'], PHP_URL_SCHEME) ||
+                        '//' === substr($file['file'], 0, 2)
+                    )
+                ) {
+                    continue;
+                }
+
+                $fileExtension = pathinfo($file['file'], PATHINFO_EXTENSION);
+                $fileExtension = 'scss' === $fileExtension ? 'css' : $fileExtension;
+                $minifiedFilePath = 'typo3temp/' . self::ASSET_PREFIX . md5($file['file']) . '.' . $fileExtension;
+
+                if (false === file_exists(PATH_site . $minifiedFilePath)) {
+                    file_put_contents(PATH_site . $minifiedFilePath, MinifierService::minifyFile($file['file']));
+                }
+
+                if ($key !== $file['file']) {
+                    $file['file'] = $minifiedFilePath;
+                    $files[$key] = $file;
+                } else {
+                    $newFile = $file;
+                    $newFile['file'] = $minifiedFilePath;
+                    $files[$minifiedFilePath] = $file;
+                    unset($files[$file['file']]);
                 }
             }
         }
     }
 
     /**
-     * @param array  $files
-     * @param string $keyToUse
+     * @param array $fileArrays
+     * @return void
      */
-    protected function replaceAssets(array &$files, $keyToUse = self::KEY_ORIGINAL)
+    protected function replaceAssetsConcatinated(array &$fileArrays)
     {
-        foreach ($files as $key => $file) {
-            if (
-                false === (boolean) $this->extConf['minifyCDN'] &&
-                (
-                    null !== parse_url($file['file'], PHP_URL_SCHEME) ||
-                    '//' === substr($file['file'], 0, 2)
-                )
-            ) {
-                continue;
-            }
+        $css = array();
+        $js = array();
+        $jsforceOnTop = array();
 
-            $fileExtension = pathinfo($file['file'], PATHINFO_EXTENSION);
-            $fileExtension = 'scss' === $fileExtension ? 'css' : $fileExtension;
-            $minifiedFilePath = 'typo3temp/' . self::ASSET_PREFIX . md5($file['file']) . '.' . $fileExtension;
+        $minifiedFilePath = 'typo3temp/' . self::ASSET_PREFIX . md5(json_encode($fileArrays)) . '.';
+        $minifiedFilePathforceOnTop = 'typo3temp/' . self::ASSET_PREFIX . md5(json_encode($fileArrays) . 'forceOnTop') . '.';
 
-            file_put_contents(PATH_site . $minifiedFilePath, MinifierService::minifyFile($file['file']));
+        foreach ($fileArrays as &$files) {
+            foreach ($files as $key => $file) {
+                $fileExtension = pathinfo($file['file'], PATHINFO_EXTENSION);
 
-            if ($keyToUse === self::KEY_ORIGINAL) {
-                $file['file'] = $minifiedFilePath;
-                $files[$key] = $file;
-            } else {
-                $newFile = $file;
-                $newFile['file'] = $minifiedFilePath;
-                $files[$minifiedFilePath] = $file;
-                unset($files[$file['file']]);
+                if (
+                    false === in_array($fileExtension, array('js', 'css', 'scss', 'sass')) ||
+                    false === (boolean) $this->extConf['minifyCDN'] &&
+                    (
+                        null !== parse_url($file['file'], PHP_URL_SCHEME) ||
+                        '//' === substr($file['file'], 0, 2)
+                    )
+                ) {
+                    continue;
+                }
+
+                if ('scss' === $fileExtension || 'sass' === $fileExtension) {
+                    $fileExtension = 'css';
+                }
+
+                if (false === file_exists(PATH_site . (true === $file['forceOnTop'] ? $minifiedFilePathforceOnTop : $minifiedFilePath) . $fileExtension)) {
+                    $minifiedFile = MinifierService::minifyFile($file['file']);
+
+                    if ('css' === $fileExtension) {
+                        $css[] = $minifiedFile;
+                    } elseif (true === $file['forceOnTop']) {
+                        $jsforceOnTop[] = $minifiedFile;
+                    } else {
+                        $js[] = $minifiedFile;
+                    }
+                }
+
+                unset($files[$key]);
             }
         }
-    }
 
-    /**
-     * @param array   $files
-     * @param string  $fileExtension
-     * @param string  $keyToUse
-     * @param integer $section
-     */
-    protected function replaceAssetsConcatinated(array &$files, $fileExtension, $keyToUse = self::KEY_ORIGINAL, $section = PageRenderer::PART_HEADER)
-    {
-        $concatinations = array();
-
-        $minifiedFilePath = 'typo3temp/' . self::ASSET_PREFIX . md5(json_encode($files)) . '.' . $fileExtension;
-
-        foreach ($files as $key => $file) {
-            if (
-                false === (boolean) $this->extConf['minifyCDN'] &&
-                (
-                    null !== parse_url($file['file'], PHP_URL_SCHEME) ||
-                    '//' === substr($file['file'], 0, 2)
-                )
-            ) {
-                continue;
-            }
-
-            if (false === file_exists(PATH_site . $minifiedFilePath)) {
-                $concatinations[] = MinifierService::minifyFile($file['file']);
-            }
-
-            unset($files[$key]);
+        if (
+            0 < count($css) &&
+            false === file_exists(PATH_site . $minifiedFilePath . 'css')
+        ) {
+            file_put_contents(PATH_site . $minifiedFilePath . 'css', implode(PHP_EOL, $css));
         }
 
-        if (false === file_exists(PATH_site . $minifiedFilePath)) {
-            if (0 === count($concatinations)) {
-                return;
-            }
-
-            file_put_contents(PATH_site . $minifiedFilePath, implode(PHP_EOL, $concatinations));
+        if (true === file_exists(PATH_site . $minifiedFilePath . 'css')) {
+            $this->pageRenderer->addCssFile($minifiedFilePath . 'css');
         }
 
-        if ($keyToUse === self::KEY_ORIGINAL) {
-            $key = 'minifier-concatinated';
-        } else {
-            $key = $minifiedFilePath;
+        if (
+            0 < count($js) &&
+            false === file_exists(PATH_site . $minifiedFilePath . 'js')
+        ) {
+            file_put_contents(PATH_site . $minifiedFilePath . 'js', implode(PHP_EOL, $js));
         }
 
-        if ('css' === $fileExtension) {
-            $files[$key] = array(
-                'file' => $minifiedFilePath,
-                'rel' => 'stylesheet',
-                'media' => 'all',
-                'title' => '',
-                'compress' => true,
-                'forceOnTop' => false,
-                'allWrap' => '',
-                'excludeFromConcatenation' => false,
-                'splitChar' => '|',
-            );
-        } else {
-            $files[$key] = array(
-                'file' => $minifiedFilePath,
-                'type' => 'text/javascript',
-                'section' => $section,
-                'compress' => true,
-                'forceOnTop' => false,
-                'allWrap' => '',
-                'excludeFromConcatenation' => false,
-                'splitChar' => '|',
-                'async' => false,
-                'integrity' => '',
-            );
+        if (true === file_exists(PATH_site . $minifiedFilePath . 'js')) {
+            $this->pageRenderer->addJsFooterFile($minifiedFilePath . 'js');
+        }
+
+        if (
+            0 < count($jsforceOnTop) &&
+            false === file_exists(PATH_site . $minifiedFilePathforceOnTop . 'js')
+        ) {
+            file_put_contents(PATH_site . $minifiedFilePathforceOnTop . 'js', implode(PHP_EOL, $jsforceOnTop));
+        }
+
+        if (true === file_exists(PATH_site . $minifiedFilePathforceOnTop . 'js')) {
+            $this->pageRenderer->addJsFile($minifiedFilePathforceOnTop . 'js');
         }
     }
 }

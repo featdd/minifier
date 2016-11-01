@@ -73,7 +73,9 @@ class MinifierService implements SingletonInterface
                 $compiler = new Compiler();
                 $compiler->setFormatter(Compressed::class);
                 $compiler->addImportPath(pathinfo(PATH_site . $filePath, PATHINFO_DIRNAME));
-                return $compiler->compile(file_get_contents(PATH_site . $filePath));
+                return self::minifyCSS(
+                    $compiler->compile(file_get_contents(PATH_site . $filePath))
+                );
             default:
                 return false;
         }

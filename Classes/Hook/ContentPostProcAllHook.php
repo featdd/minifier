@@ -26,6 +26,8 @@ namespace Featdd\Minifier\Hook;
  ***************************************************************/
 
 use Featdd\Minifier\Service\MinifierService;
+use TYPO3\CMS\Core\Utility\ArrayUtility;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Frontend\Controller\TypoScriptFrontendController;
 
 /**
@@ -38,7 +40,13 @@ class ContentPostProcAllHook
     /**
      * @var array
      */
-    protected $extConf = array();
+    protected $extConf = array(
+        'disableMinifier' => false,
+        'disableMinifierInDevelopment' => false,
+        'minifyCDN' => false,
+        'concatenate' => false,
+        'integrityHash' => false,
+    );
 
     /**
      * @return \Featdd\Minifier\Hook\ContentPostProcAllHook
@@ -48,7 +56,7 @@ class ContentPostProcAllHook
         $extConf = unserialize($GLOBALS['TYPO3_CONF_VARS']['EXT']['extConf']['minifier']);
 
         if (is_array($extConf)) {
-            $this->extConf = $extConf;
+            ArrayUtility::mergeRecursiveWithOverrule($this->extConf, $extConf);
         }
     }
 
@@ -58,7 +66,13 @@ class ContentPostProcAllHook
      */
     public function main(array &$params, TypoScriptFrontendController $typoScriptFrontendController)
     {
-        if (false === (boolean) $this->extConf['disableMinifier']) {
+        if (
+            false === (boolean) $this->extConf['disableMinifier'] &&
+            false === (
+                true === (bool) $this->extConf['disableMinifierInDevelopment'] &&
+                true === GeneralUtility::getApplicationContext()->isDevelopment()
+            )
+        ) {
             $typoScriptFrontendController->content = MinifierService::minifyHTML($typoScriptFrontendController->content);
         }
     }

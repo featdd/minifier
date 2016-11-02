@@ -28,6 +28,7 @@ namespace Featdd\Minifier\Hook;
 use Featdd\Minifier\Service\MinifierService;
 use TYPO3\CMS\Core\Page\PageRenderer;
 use TYPO3\CMS\Core\Utility\ArrayUtility;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 /**
  *
@@ -49,6 +50,7 @@ class RenderPreProcessHook
      */
     protected $extConf = array(
         'disableMinifier' => false,
+        'disableMinifierInDevelopment' => false,
         'minifyCDN' => false,
         'concatenate' => false,
         'integrityHash' => false,
@@ -75,7 +77,14 @@ class RenderPreProcessHook
     {
         $this->pageRenderer = $pageRenderer;
 
-        if ('FE' === TYPO3_MODE) {
+        if (
+            'FE' === TYPO3_MODE &&
+            false === (bool) $this->extConf['disableMinifier'] &&
+            false === (
+                true === (bool) $this->extConf['disableMinifierInDevelopment'] &&
+                true === GeneralUtility::getApplicationContext()->isDevelopment()
+            )
+        ) {
             $paramFiles = array(
                 &$params['cssFiles'],
                 &$params['jsFiles'],

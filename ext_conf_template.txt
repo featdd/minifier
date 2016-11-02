@@ -1,5 +1,7 @@
 # cat=minifier; type=boolean; label=Disable minifier
 disableMinifier = 0
+# cat=minifier; type=boolean; label=Disable minifier in development context
+disableMinifierInDevelopment = 0
 # cat=minifier; type=boolean; label=Minification of CDN's
 minifyCDN = 0
 # cat=minifier; type=boolean; label=Concatenate minfied assets

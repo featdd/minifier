@@ -27,6 +27,7 @@ namespace Featdd\Minifier\Hook;
 
 use Featdd\Minifier\Service\MinifierService;
 use TYPO3\CMS\Core\Page\PageRenderer;
+use TYPO3\CMS\Core\Utility\ArrayUtility;
 
 /**
  *
@@ -36,6 +37,7 @@ use TYPO3\CMS\Core\Page\PageRenderer;
 class RenderPreProcessHook
 {
     const ASSET_PREFIX = 'minifier-';
+    const INTEGRITY_ALGORITHM = 'sha384';
 
     /**
      * @var \TYPO3\CMS\Core\Page\PageRenderer
@@ -45,7 +47,12 @@ class RenderPreProcessHook
     /**
      * @var array
      */
-    protected $extConf = array();
+    protected $extConf = array(
+        'disableMinifier' => false,
+        'minifyCDN' => false,
+        'concatenate' => false,
+        'integrityHash' => false,
+    );
 
     /**
      * @return \Featdd\Minifier\Hook\RenderPreProcessHook
@@ -55,12 +62,12 @@ class RenderPreProcessHook
         $extConf = unserialize($GLOBALS['TYPO3_CONF_VARS']['EXT']['extConf']['minifier']);
 
         if (is_array($extConf)) {
-            $this->extConf = $extConf;
+            ArrayUtility::mergeRecursiveWithOverrule($this->extConf, $extConf);
         }
     }
 
     /**
-     * @param array        $params
+     * @param array $params
      * @param PageRenderer $pageRenderer
      * @return void
      */
@@ -88,6 +95,65 @@ class RenderPreProcessHook
     }
 
     /**
+     * @param string $relativeFilePath
+     * @param string $integrityHash
+     * @return string
+     */
+    protected function renderJavaScriptTag($relativeFilePath, $integrityHash = null)
+    {
+        return '<script' .
+        ' src="' . $relativeFilePath . '"' .
+        ' type="text/javascript"' .
+        (false === empty($integrityHash) && true === (bool) $this->extConf['integrityHash'] ? ' integrity="' . self::INTEGRITY_ALGORITHM . '-' . $integrityHash . '"' : '') .
+        '></script>';
+    }
+
+    /**
+     * @param string $relativeFilePath
+     * @param string $integrityHash
+     * @return string
+     */
+    protected function renderStylesheetTag($relativeFilePath, $integrityHash = null)
+    {
+        return '<link' .
+        ' rel="stylesheet"' .
+        ' type="text/css"' .
+        ' href="' . $relativeFilePath . '"' .
+        ' media="all"' .
+        (false === empty($integrityHash) && true === (bool) $this->extConf['integrityHash'] ? ' integrity="' . self::INTEGRITY_ALGORITHM . '-' . $integrityHash . '"' : '') .
+        '>';
+    }
+
+    /**
+     * @param string $relativeFilePath
+     * @return string
+     */
+    protected function getGeneratedFileIntegrityHash($relativeFilePath)
+    {
+        if (false === file_exists(PATH_site . $relativeFilePath . '.' . self::INTEGRITY_ALGORITHM)) {
+            return null;
+        } else {
+            return base64_encode(
+                file_get_contents(PATH_site . $relativeFilePath . '.' . self::INTEGRITY_ALGORITHM)
+            );
+        }
+    }
+
+    /**
+     * @param string $relativeFilePath
+     * @return void
+     */
+    protected function generateHashFile($relativeFilePath)
+    {
+        if (false === file_exists(PATH_site . $relativeFilePath . '.' . self::INTEGRITY_ALGORITHM)) {
+            file_put_contents(
+                PATH_site . $relativeFilePath . '.' . self::INTEGRITY_ALGORITHM,
+                hash_file(self::INTEGRITY_ALGORITHM, PATH_site . $relativeFilePath, true)
+            );
+        }
+    }
+
+    /**
      * @param array $fileArrays
      * @return void
      */
@@ -111,17 +177,41 @@ class RenderPreProcessHook
 
                 if (false === file_exists(PATH_site . $minifiedFilePath)) {
                     file_put_contents(PATH_site . $minifiedFilePath, MinifierService::minifyFile($file['file']));
+
+                    if ($this->extConf['integrityHash']) {
+                        $this->generateHashFile($minifiedFilePath);
+                    }
                 }
 
-                if ($key !== $file['file']) {
-                    $file['file'] = $minifiedFilePath;
-                    $files[$key] = $file;
+                if (
+                    true === $file['forceOnTop'] ||
+                    'css' === $fileExtension
+                ) {
+                    if ('css' === $fileExtension) {
+                        $this->pageRenderer->addHeaderData(
+                            $this->renderStylesheetTag(
+                                $minifiedFilePath,
+                                $this->getGeneratedFileIntegrityHash($minifiedFilePath)
+                            )
+                        );
+                    } else {
+                        $this->pageRenderer->addHeaderData(
+                            $this->renderJavaScriptTag(
+                                $minifiedFilePath,
+                                $this->getGeneratedFileIntegrityHash($minifiedFilePath)
+                            )
+                        );
+                    }
                 } else {
-                    $newFile = $file;
-                    $newFile['file'] = $minifiedFilePath;
-                    $files[$minifiedFilePath] = $file;
-                    unset($files[$file['file']]);
+                    $this->pageRenderer->addFooterData(
+                        $this->renderJavaScriptTag(
+                            $minifiedFilePath,
+                            $this->getGeneratedFileIntegrityHash($minifiedFilePath)
+                        )
+                    );
                 }
+
+                unset($files[$key]);
             }
         }
     }
@@ -181,8 +271,17 @@ class RenderPreProcessHook
             file_put_contents(PATH_site . $minifiedFilePath . 'css', implode(PHP_EOL, $css));
         }
 
+        if ($this->extConf['integrityHash']) {
+            $this->generateHashFile($minifiedFilePath . 'css');
+        }
+
         if (true === file_exists(PATH_site . $minifiedFilePath . 'css')) {
-            $this->pageRenderer->addCssFile($minifiedFilePath . 'css');
+            $this->pageRenderer->addHeaderData(
+                $this->renderStylesheetTag(
+                    $minifiedFilePath . 'css',
+                    $this->getGeneratedFileIntegrityHash($minifiedFilePath . 'css')
+                )
+            );
         }
 
         if (
@@ -192,8 +291,17 @@ class RenderPreProcessHook
             file_put_contents(PATH_site . $minifiedFilePath . 'js', implode(PHP_EOL, $js));
         }
 
+        if ($this->extConf['integrityHash']) {
+            $this->generateHashFile($minifiedFilePath . 'js');
+        }
+
         if (true === file_exists(PATH_site . $minifiedFilePath . 'js')) {
-            $this->pageRenderer->addJsFooterFile($minifiedFilePath . 'js');
+            $this->pageRenderer->addFooterData(
+                $this->renderJavaScriptTag(
+                    $minifiedFilePath . 'js',
+                    $this->getGeneratedFileIntegrityHash($minifiedFilePath . 'js')
+                )
+            );
         }
 
         if (
@@ -203,8 +311,17 @@ class RenderPreProcessHook
             file_put_contents(PATH_site . $minifiedFilePathforceOnTop . 'js', implode(PHP_EOL, $jsforceOnTop));
         }
 
+        if ($this->extConf['integrityHash']) {
+            $this->generateHashFile($minifiedFilePathforceOnTop . 'js');
+        }
+
         if (true === file_exists(PATH_site . $minifiedFilePathforceOnTop . 'js')) {
-            $this->pageRenderer->addJsFile($minifiedFilePathforceOnTop . 'js');
+            $this->pageRenderer->addHeaderData(
+                $this->renderJavaScriptTag(
+                    $minifiedFilePathforceOnTop . 'js',
+                    $this->getGeneratedFileIntegrityHash($minifiedFilePathforceOnTop . 'js')
+                )
+            );
         }
     }
 }

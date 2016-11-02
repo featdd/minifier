@@ -1,6 +1,8 @@
-# cat=plugin.tx_minifier; type=boolean; label=Disable minifier
+# cat=minifier; type=boolean; label=Disable minifier
 disableMinifier = 0
-# cat=plugin.tx_minifier; type=boolean; label=Minification of CDN's
+# cat=minifier; type=boolean; label=Minification of CDN's
 minifyCDN = 0
-# cat=plugin.tx_minifier; type=boolean; label=Concatenate minfied assets
+# cat=minifier; type=boolean; label=Concatenate minfied assets
 concatenate = 0
+# cat=minifier; type=boolean; label=Calculate subresource integrity hash
+integrityHash = 0

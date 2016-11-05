@@ -37,6 +37,8 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
  */
 class RenderPreProcessHook
 {
+    const ASSET_FOLDER_ABSOLUTE = PATH_site . 'typo3temp/tx_minifier/';
+    const ASSET_FOLDER = 'typo3temp/tx_minifier/';
     const ASSET_PREFIX = 'minifier-';
     const INTEGRITY_ALGORITHM = 'sha384';
 
@@ -85,6 +87,10 @@ class RenderPreProcessHook
                 true === GeneralUtility::getApplicationContext()->isDevelopment()
             )
         ) {
+            if (false === is_dir(self::ASSET_FOLDER_ABSOLUTE)) {
+                mkdir(self::ASSET_FOLDER_ABSOLUTE, 0755);
+            }
+
             $paramFiles = array(
                 &$params['cssFiles'],
                 &$params['jsFiles'],
@@ -104,60 +110,60 @@ class RenderPreProcessHook
     }
 
     /**
-     * @param string $relativeFilePath
+     * @param string $filename
      * @param string $integrityHash
      * @return string
      */
-    protected function renderJavaScriptTag($relativeFilePath, $integrityHash = null)
+    protected function renderJavaScriptTag($filename, $integrityHash = null)
     {
         return '<script' .
-        ' src="' . $relativeFilePath . '"' .
+        ' src="' . self::ASSET_FOLDER . $filename . '"' .
         ' type="text/javascript"' .
         (false === empty($integrityHash) && true === (bool) $this->extConf['integrityHash'] ? ' integrity="' . self::INTEGRITY_ALGORITHM . '-' . $integrityHash . '"' : '') .
         '></script>';
     }
 
     /**
-     * @param string $relativeFilePath
+     * @param string $filename
      * @param string $integrityHash
      * @return string
      */
-    protected function renderStylesheetTag($relativeFilePath, $integrityHash = null)
+    protected function renderStylesheetTag($filename, $integrityHash = null)
     {
         return '<link' .
         ' rel="stylesheet"' .
         ' type="text/css"' .
-        ' href="' . $relativeFilePath . '"' .
+        ' href="' . self::ASSET_FOLDER . $filename . '"' .
         ' media="all"' .
         (false === empty($integrityHash) && true === (bool) $this->extConf['integrityHash'] ? ' integrity="' . self::INTEGRITY_ALGORITHM . '-' . $integrityHash . '"' : '') .
         '>';
     }
 
     /**
-     * @param string $relativeFilePath
+     * @param string $filename
      * @return string
      */
-    protected function getGeneratedFileIntegrityHash($relativeFilePath)
+    protected function getGeneratedFileIntegrityHash($filename)
     {
-        if (false === file_exists(PATH_site . $relativeFilePath . '.' . self::INTEGRITY_ALGORITHM)) {
+        if (false === file_exists(self::ASSET_FOLDER_ABSOLUTE . $filename . '.' . self::INTEGRITY_ALGORITHM)) {
             return null;
         } else {
             return base64_encode(
-                file_get_contents(PATH_site . $relativeFilePath . '.' . self::INTEGRITY_ALGORITHM)
+                file_get_contents(self::ASSET_FOLDER_ABSOLUTE . $filename . '.' . self::INTEGRITY_ALGORITHM)
             );
         }
     }
 
     /**
-     * @param string $relativeFilePath
+     * @param string $filename
      * @return void
      */
-    protected function generateHashFile($relativeFilePath)
+    protected function generateHashFile($filename)
     {
-        if (false === file_exists(PATH_site . $relativeFilePath . '.' . self::INTEGRITY_ALGORITHM)) {
+        if (false === file_exists(self::ASSET_FOLDER_ABSOLUTE . $filename . '.' . self::INTEGRITY_ALGORITHM)) {
             file_put_contents(
-                PATH_site . $relativeFilePath . '.' . self::INTEGRITY_ALGORITHM,
-                hash_file(self::INTEGRITY_ALGORITHM, PATH_site . $relativeFilePath, true)
+                self::ASSET_FOLDER_ABSOLUTE . $filename . '.' . self::INTEGRITY_ALGORITHM,
+                hash_file(self::INTEGRITY_ALGORITHM, self::ASSET_FOLDER_ABSOLUTE . $filename, true)
             );
         }
     }
@@ -182,13 +188,13 @@ class RenderPreProcessHook
 
                 $fileExtension = pathinfo($file['file'], PATHINFO_EXTENSION);
                 $fileExtension = 'scss' === $fileExtension ? 'css' : $fileExtension;
-                $minifiedFilePath = 'typo3temp/' . self::ASSET_PREFIX . md5($file['file']) . '.' . $fileExtension;
+                $minifiedFilename = self::ASSET_PREFIX . md5($file['file']) . '.' . $fileExtension;
 
-                if (false === file_exists(PATH_site . $minifiedFilePath)) {
-                    file_put_contents(PATH_site . $minifiedFilePath, MinifierService::minifyFile($file['file']));
+                if (false === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename)) {
+                    file_put_contents(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename, MinifierService::minifyFile($file['file']));
 
                     if ($this->extConf['integrityHash']) {
-                        $this->generateHashFile($minifiedFilePath);
+                        $this->generateHashFile($minifiedFilename);
                     }
                 }
 
@@ -199,23 +205,23 @@ class RenderPreProcessHook
                     if ('css' === $fileExtension) {
                         $this->pageRenderer->addHeaderData(
                             $this->renderStylesheetTag(
-                                $minifiedFilePath,
-                                $this->getGeneratedFileIntegrityHash($minifiedFilePath)
+                                $minifiedFilename,
+                                $this->getGeneratedFileIntegrityHash($minifiedFilename)
                             )
                         );
                     } else {
                         $this->pageRenderer->addHeaderData(
                             $this->renderJavaScriptTag(
-                                $minifiedFilePath,
-                                $this->getGeneratedFileIntegrityHash($minifiedFilePath)
+                                $minifiedFilename,
+                                $this->getGeneratedFileIntegrityHash($minifiedFilename)
                             )
                         );
                     }
                 } else {
                     $this->pageRenderer->addFooterData(
                         $this->renderJavaScriptTag(
-                            $minifiedFilePath,
-                            $this->getGeneratedFileIntegrityHash($minifiedFilePath)
+                            $minifiedFilename,
+                            $this->getGeneratedFileIntegrityHash($minifiedFilename)
                         )
                     );
                 }
@@ -235,8 +241,8 @@ class RenderPreProcessHook
         $js = array();
         $jsforceOnTop = array();
 
-        $minifiedFilePath = 'typo3temp/' . self::ASSET_PREFIX . md5(json_encode($fileArrays)) . '.';
-        $minifiedFilePathforceOnTop = 'typo3temp/' . self::ASSET_PREFIX . md5(json_encode($fileArrays) . 'forceOnTop') . '.';
+        $minifiedFilename = self::ASSET_PREFIX . md5(json_encode($fileArrays)) . '.';
+        $minifiedFilenameForceOnTop = self::ASSET_PREFIX . md5(json_encode($fileArrays) . 'forceOnTop') . '.';
 
         foreach ($fileArrays as &$files) {
             foreach ($files as $key => $file) {
@@ -257,7 +263,7 @@ class RenderPreProcessHook
                     $fileExtension = 'css';
                 }
 
-                if (false === file_exists(PATH_site . (true === $file['forceOnTop'] ? $minifiedFilePathforceOnTop : $minifiedFilePath) . $fileExtension)) {
+                if (false === file_exists(self::ASSET_FOLDER_ABSOLUTE . (true === $file['forceOnTop'] ? $minifiedFilenameForceOnTop : $minifiedFilename) . $fileExtension)) {
                     $minifiedFile = MinifierService::minifyFile($file['file']);
 
                     if ('css' === $fileExtension) {
@@ -275,60 +281,60 @@ class RenderPreProcessHook
 
         if (
             0 < count($css) &&
-            false === file_exists(PATH_site . $minifiedFilePath . 'css')
+            false === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'css')
         ) {
-            file_put_contents(PATH_site . $minifiedFilePath . 'css', implode(PHP_EOL, $css));
+            file_put_contents(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'css', implode(PHP_EOL, $css));
         }
 
         if ($this->extConf['integrityHash']) {
-            $this->generateHashFile($minifiedFilePath . 'css');
+            $this->generateHashFile($minifiedFilename . 'css');
         }
 
-        if (true === file_exists(PATH_site . $minifiedFilePath . 'css')) {
+        if (true === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'css')) {
             $this->pageRenderer->addHeaderData(
                 $this->renderStylesheetTag(
-                    $minifiedFilePath . 'css',
-                    $this->getGeneratedFileIntegrityHash($minifiedFilePath . 'css')
+                    $minifiedFilename . 'css',
+                    $this->getGeneratedFileIntegrityHash($minifiedFilename . 'css')
                 )
             );
         }
 
         if (
             0 < count($js) &&
-            false === file_exists(PATH_site . $minifiedFilePath . 'js')
+            false === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'js')
         ) {
-            file_put_contents(PATH_site . $minifiedFilePath . 'js', implode(PHP_EOL, $js));
+            file_put_contents(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'js', implode(PHP_EOL, $js));
         }
 
         if ($this->extConf['integrityHash']) {
-            $this->generateHashFile($minifiedFilePath . 'js');
+            $this->generateHashFile($minifiedFilename . 'js');
         }
 
-        if (true === file_exists(PATH_site . $minifiedFilePath . 'js')) {
+        if (true === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'js')) {
             $this->pageRenderer->addFooterData(
                 $this->renderJavaScriptTag(
-                    $minifiedFilePath . 'js',
-                    $this->getGeneratedFileIntegrityHash($minifiedFilePath . 'js')
+                    $minifiedFilename . 'js',
+                    $this->getGeneratedFileIntegrityHash($minifiedFilename . 'js')
                 )
             );
         }
 
         if (
             0 < count($jsforceOnTop) &&
-            false === file_exists(PATH_site . $minifiedFilePathforceOnTop . 'js')
+            false === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilenameForceOnTop . 'js')
         ) {
-            file_put_contents(PATH_site . $minifiedFilePathforceOnTop . 'js', implode(PHP_EOL, $jsforceOnTop));
+            file_put_contents(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilenameForceOnTop . 'js', implode(PHP_EOL, $jsforceOnTop));
         }
 
         if ($this->extConf['integrityHash']) {
-            $this->generateHashFile($minifiedFilePathforceOnTop . 'js');
+            $this->generateHashFile($minifiedFilenameForceOnTop . 'js');
         }
 
-        if (true === file_exists(PATH_site . $minifiedFilePathforceOnTop . 'js')) {
+        if (true === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilenameForceOnTop . 'js')) {
             $this->pageRenderer->addHeaderData(
                 $this->renderJavaScriptTag(
-                    $minifiedFilePathforceOnTop . 'js',
-                    $this->getGeneratedFileIntegrityHash($minifiedFilePathforceOnTop . 'js')
+                    $minifiedFilenameForceOnTop . 'js',
+                    $this->getGeneratedFileIntegrityHash($minifiedFilenameForceOnTop . 'js')
                 )
             );
         }

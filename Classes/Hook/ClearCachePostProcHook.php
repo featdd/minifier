@@ -42,9 +42,12 @@ class ClearCachePostProcHook
     public function main(array &$params, DataHandler $dataHandler)
     {
         if ('pages' === $params['cacheCmd'] || 'all' === $params['cacheCmd']) {
-            $cacheFiles = glob(GeneralUtility::getFileAbsFileName('typo3temp/' . RenderPreProcessHook::ASSET_PREFIX . '*'));
+            $cacheFiles = glob(GeneralUtility::getFileAbsFileName(RenderPreProcessHook::ASSET_FOLDER . '*'));
 
-            if (false !== $cacheFiles) {
+            if (
+                false !== $cacheFiles &&
+                true === is_array($cacheFiles)
+            ) {
                 foreach ($cacheFiles as $cacheFile) {
                     unlink($cacheFile);
                 }

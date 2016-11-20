@@ -284,10 +284,10 @@ class RenderPreProcessHook
             false === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'css')
         ) {
             file_put_contents(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'css', implode(PHP_EOL, $css));
-        }
 
-        if ($this->extConf['integrityHash']) {
-            $this->generateHashFile($minifiedFilename . 'css');
+            if ($this->extConf['integrityHash']) {
+                $this->generateHashFile($minifiedFilename . 'css');
+            }
         }
 
         if (true === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'css')) {
@@ -304,10 +304,10 @@ class RenderPreProcessHook
             false === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'js')
         ) {
             file_put_contents(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'js', implode(PHP_EOL, $js));
-        }
 
-        if ($this->extConf['integrityHash']) {
-            $this->generateHashFile($minifiedFilename . 'js');
+            if ($this->extConf['integrityHash']) {
+                $this->generateHashFile($minifiedFilename . 'js');
+            }
         }
 
         if (true === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilename . 'js')) {
@@ -324,10 +324,10 @@ class RenderPreProcessHook
             false === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilenameForceOnTop . 'js')
         ) {
             file_put_contents(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilenameForceOnTop . 'js', implode(PHP_EOL, $jsforceOnTop));
-        }
 
-        if ($this->extConf['integrityHash']) {
-            $this->generateHashFile($minifiedFilenameForceOnTop . 'js');
+            if ($this->extConf['integrityHash']) {
+                $this->generateHashFile($minifiedFilenameForceOnTop . 'js');
+            }
         }
 
         if (true === file_exists(self::ASSET_FOLDER_ABSOLUTE . $minifiedFilenameForceOnTop . 'js')) {
